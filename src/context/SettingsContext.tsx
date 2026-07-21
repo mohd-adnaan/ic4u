@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { iOSTts } from '../services/iOSTtsClient';
 import { orchestratorConfig } from '../services/OrchestratorConfig';
+import { syncReachingPreferences } from '../native/ReachingModule';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -146,6 +147,19 @@ const SettingsContext = createContext<SettingsContextValue | undefined>(undefine
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // ── Mirror reaching preferences into the native reaching layer ───────────
+  // A reaching session started inside native (the route-manager's arrival
+  // handoff) gets no config dictionary from JS, so it reads this mirror to
+  // learn whether the user wants hand-free or with-hand guidance.
+  useEffect(() => {
+    if (!isLoaded) return;
+    void syncReachingPreferences({
+      mode: settings.reachingMode,
+      distanceUnit: settings.distanceUnit,
+      ttsRate: settings.ttsRate,
+    });
+  }, [isLoaded, settings.reachingMode, settings.distanceUnit, settings.ttsRate]);
 
   // ── Load from storage on mount ───────────────────────────────────────────
   useEffect(() => {

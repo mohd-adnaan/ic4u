@@ -230,8 +230,19 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
     updateEnableAcquisitionAutoExit,
     updateNavigationErrorRecovery,
     updateNavigationClockFaceDirections,
+    effectiveReachingPipeline,
   } =
     useSettings();
+
+  // Guidance-style options belong to the ARKit reaching engines, not to
+  // Melody's Standard loop. Read the *effective* pipeline: In-Device Mode
+  // forces Spatial Target regardless of what is stored underneath.
+  const arkitReachingActive =
+    Platform.OS === 'ios' && effectiveReachingPipeline !== 'standard';
+  // Auto-exit is backend acquisition validation; Spatial Target never calls a
+  // backend, so the toggle would be a dead switch there.
+  const acquisitionAutoExitApplies =
+    arkitReachingActive && effectiveReachingPipeline !== 'spatialTarget';
 
   const [localRate, setLocalRate] = useState(settings.ttsRate);
   const [wearablesStatus, setWearablesStatus] = useState<WearablesCameraStatus>('unknown');
@@ -985,10 +996,13 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
         {/* ══════════════════════════════════════════
             SECTION 1.5 — Reaching Mode (Hand-free vs With Hand)
         ══════════════════════════════════════════ */}
-        {Platform.OS === 'ios' && settings.reachingPipeline !== 'standard' && (
+        {arkitReachingActive && (
           <Section title="Reaching Mode">
             <Text style={styles.settingDescription}>
               Choose how guidance works: <Text style={styles.emphasisText}>Hands-free</Text> or <Text style={styles.emphasisText}>With hand</Text>.
+              {' '}Applies to {effectiveReachingPipeline === 'spatialTarget'
+                ? 'on-device Spatial Target reaching'
+                : 'Vision Box reaching'}.
             </Text>
 
             {/* Mode comparison */}
@@ -1044,6 +1058,14 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
               </TouchableOpacity>
             </View>
 
+            {!acquisitionAutoExitApplies && (
+              <Text style={styles.settingSubLabel}>
+                On-device reaching always ends on your tap — there is no backend
+                to confirm the grab.
+              </Text>
+            )}
+
+            {acquisitionAutoExitApplies && (
             <View style={styles.settingRow}>
               <View style={styles.settingLabelBlock}>
                 <Text style={styles.settingLabel}>Auto-exit on reach</Text>
@@ -1074,13 +1096,14 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
                 }}
               />
             </View>
+            )}
           </Section>
         )}
 
         {/* ══════════════════════════════════════════
             SECTION 1.6 — Distance Unit
         ══════════════════════════════════════════ */}
-        {Platform.OS === 'ios' && settings.reachingPipeline !== 'standard' && (
+        {arkitReachingActive && (
           <Section title="Distance Feedback">
             <Text style={styles.settingDescription}>
               Choose how distance is spoken during guidance.
